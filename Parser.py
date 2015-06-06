@@ -1,59 +1,69 @@
 import re
 import MyTranslater
 
-def parse(translater, string):
-    translater = translater
-    commandList = string.split("\n")
+def parse_command(command):
+    try:
+        if command.find("(") == -1:
+            command = command + "()"
+        if command.find(" ", 0, 6) > 0:
+            command = command.replace(" ","_", 1)
+        command = "translater." + command
+        return command
+    except AttributeError:
+        print("Not a command!")
 
+def parse_loop(loop):
+    loop = loop.replace("to", "in xrange(")
+    loop = loop.replace(" do", "):")
+    commands = loop[loop.index(":"):len(loop)]
+    loop = loop[0: loop.index(":")+1]
+    commandsList = commands.split("\n")
+    loop_commands = []
+    for x in commandsList:
+        if x != ":" and x:
+            loop_commands.append(parse_command(x))
+    commands = "\n    ".join(loop_commands)
+    loop = loop + "\n    " + commands
+    range1 = loop[loop.index("=")+1:loop.index("in xrange")]
+    command = loop.replace("=", "")
+    #Only works for x=0 esc syntax. Breaks at for var = 0 since the index of the value moves...
+    commandPart1 = command[0: command.index("(")+1]
+    commandPart2 = command[command.index("(")+1: len(command)]
+    commandPart1 = commandPart1.replace(range1," ")
+    command = commandPart1 + range1 + "," + commandPart2
+    return command
+
+def sort_command_list(commandList, loopList):
+    in_for_loop = False
+    list_to_return = []
+    index = 0
     for command in commandList:
-        penDown = re.search(r'\s*pen[ _]down', command)
-        penUp = re.search(r'\s*pen[ _]up',command)
-        moveForward  = re.search(r'\s*move[ _]forward',command)
-        moveBackward = re.search(r"\s*move[ _]backward", command)
-        move = re.search("\s*move (\d*),(\d)", command)
-        turncw = re.search("\s*turn[ _]cw (\d)", command)
-        turnccw = re.search("\s*turn[ _]ccw (\d)", command)
-        put = re.search("\s*put (\d*),(\d*),(\d)", command)
+        if command.find("for ") != -1:
+            list_to_return.append(loopList[index])
+            in_for_loop = True
+            index += 1
+        elif not in_for_loop:
+            list_to_return.append(command)
+        elif command.find("end") != -1:
+            in_for_loop = False
+    return list_to_return
+
+def parse(translater, string):
+    loopList = []
+    commandList = string.split("\n")
+    for x in xrange(0,string.count('for ')):
+        loop = string[string.index('for '):string.index('end')]
+        string = string[0: string.index('for ')] + string[string.index('end') + 3: len(string)]
+        loop = parse_loop(loop)
+        loopList.append(loop)
+
+    commandList = sort_command_list(commandList, loopList)
+    for command in commandList:
         if(command == ""):
             pass
-        elif penDown:
-            translater.pen_down()
-        elif penUp:
-            translater.pen_up()
-        elif moveForward:
-            translater.move_forward()
-        elif moveBackward:
-            translater.move_backward()
-        elif move:
-            move_command = []
-            command = str(str(command).split(" ")).split(",")
-            for cmd in command:
-                cmd = cmd.strip("]").strip(" ").strip("'")
-                move_command.append(cmd)
-            steps = move_command[1]
-            angle = move_command[2]
-            translater.move(int(steps), int(angle))
-            
-        elif turncw:
-            command = str(command).split(" ")
-            angle = command[1]
-            translater.turn_cw(angle)
-        elif turnccw:
-            command = str(command).split(" ")
-            angle = command[1]
-            translater.turn_ccw(angle)
-        elif put:
-            put_command = []
-            command = str(str(command).split(" ")).split(",")
-            for cmd in command:
-                cmd = cmd.strip("]").strip(" ").strip("'")
-                put_command.append(cmd)
-            x = put_command[1]
-            y = put_command[2]
-            angle = put_command[3]
-            translater.put(x,y,angle)
+        elif(command.find("for ") != -1):
+            exec(command)
         else:
-            print("Not a match")
-
-    
-
+            command = parse_command(command)
+            print command
+            eval(command)
