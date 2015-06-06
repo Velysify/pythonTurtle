@@ -65,5 +65,4 @@ def parse(translater, string):
             exec(command)
         else:
             command = parse_command(command)
-            print command
             eval(command)
